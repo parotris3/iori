@@ -310,7 +310,7 @@ impl PESSegment {
         writer.write_packet(&mut TsPacket {
             header: self.pes_ts_header,
             adaptation_field: None,
-            payload: Some(TsPayload::Pes(Pes {
+            payload: Some(TsPayload::PesStart(Pes {
                 header: self.pes_header,
                 pes_packet_len: self.pes_packet_len,
                 data: Bytes::new(&self.data[..initial_size])?,
@@ -493,7 +493,9 @@ where
             let flush = if matches!(
                 payload,
                 // PES is the start of a new stream
-                TsPayload::Pes(_) |
+                TsPayload::PesStart(_) |
+                // PES continuation is part of the current stream
+                TsPayload::PesContinuation(_) 
                 // RAW is part of the current stream
                 TsPayload::Raw(_) |
                 // NULL is just placeholder, no need to flush
@@ -531,7 +533,7 @@ where
                     })?;
                 }
                 // only decrypt stream that should be decrypted
-                TsPayload::Pes(pes) if should_decrypt_stream(&pid_map, header.pid.as_u16()) => {
+                TsPayload::PesStart(pes) if should_decrypt_stream(&pid_map, header.pid.as_u16()) => {
                     let stream_type = pid_map.get(&header.pid.as_u16());
 
                     let prev_pes = streams.insert(
@@ -554,6 +556,12 @@ where
                     }
                 }
                 TsPayload::Raw(bytes) if streams.contains_key(&header.pid) => {
+                    // SAFETY: We've validated the stream exist in streams
+                    let pes = streams.get_mut(&header.pid).unwrap();
+                    pes.data_packet_num += 1;
+                    pes.data.extend_from_slice(&bytes);
+                }
+                TsPayload::PesContinuation(bytes) if streams.contains_key(&header.pid) => {
                     // SAFETY: We've validated the stream exist in streams
                     let pes = streams.get_mut(&header.pid).unwrap();
                     pes.data_packet_num += 1;
