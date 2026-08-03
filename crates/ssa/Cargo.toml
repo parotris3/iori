@@ -7,6 +7,9 @@ authors.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[patch.crates-io]
+mpeg2ts = { path = "vendor/mpeg2ts-0.6.0" }
+
 [dependencies]
 aes.workspace = true
 cbc = "0.1.2"
