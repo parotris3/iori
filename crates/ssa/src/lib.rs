@@ -495,7 +495,7 @@ where
                 // PES is the start of a new stream
                 TsPayload::PesStart(_) |
                 // PES continuation is part of the current stream
-                TsPayload::PesContinuation(_) 
+                 TsPayload::PesContinuation(_) |
                 // RAW is part of the current stream
                 TsPayload::Raw(_) |
                 // NULL is just placeholder, no need to flush
