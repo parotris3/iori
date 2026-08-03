@@ -105,9 +105,7 @@ impl PesHeader {
         let crc_flag = (b & 0b0000_0010) != 0;
         let extension_flag = (b & 0b0000_0001) != 0;
 
-        if es_rate_flag {
-            return Err(Error::unsupported("ES rate flag is not supported"));
-        }
+        // es_rate_flag ya se ha leído arriba; el consumo de sus 3 bytes se hace más abajo, tras ESCR.
         if dsm_trick_mode_flag {
             return Err(Error::unsupported("DSM trick mode flag is not supported"));
         }
@@ -143,6 +141,15 @@ impl PesHeader {
         } else {
             None
         };
+
+        // ES_rate: 22 bits + marker bits, empaquetados en 3 bytes según ISO/IEC 13818-1.
+        // No se usa en este crate, simplemente se descarta para mantener la alineación del resto de la cabecera.
+        if es_rate_flag {
+        reader.read_u8()?;
+        reader.read_u8()?;
+        reader.read_u8()?;
+        }
+        
         crate::util::consume_stuffing_bytes(reader)?;
 
         let header = PesHeader {
