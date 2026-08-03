@@ -459,18 +459,35 @@ where
     R: Read,
     W: Write,
 {
-    let mut reader = TsPacketReader::new(input);
+        let mut reader = TsPacketReader::new(input);
     let mut writer = IoriTsPacketWriter::new(output);
 
     let mut streams = HashMap::new();
     let mut pid_map = HashMap::new();
+    let mut packet_count: usize = 0;
 
-    while let Ok(Some(TsPacket {
-        header,
-        adaptation_field,
-        payload,
-    })) = reader.read_ts_packet()
-    {
+    loop {
+        let ts_packet = match reader.read_ts_packet() {
+            Ok(Some(p)) => p,
+            Ok(None) => {
+                log::error!("[iori_ssa] Fin normal de stream tras {} paquetes", packet_count);
+                break;
+            }
+            Err(e) => {
+                log::error!(
+                    "[iori_ssa] ERROR de parseo TS en paquete #{}: {:?}",
+                    packet_count, e
+                );
+                break;
+            }
+        };
+        let TsPacket {
+            header,
+            adaptation_field,
+            payload,
+        } = ts_packet;
+        packet_count += 1;
+
         if let Some(payload) = payload {
             // do not flush after receiving the following payloads
             let flush = if matches!(
@@ -557,7 +574,6 @@ where
             };
         }
     }
-
     // handle remaining streams
     for pes in streams.into_values() {
         pes.decrypt_and_write(key, iv, &mut writer)?;
